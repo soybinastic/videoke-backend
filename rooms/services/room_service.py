@@ -3,7 +3,7 @@ from uuid import UUID
 from rooms.domain.constants import RoomEventType
 from rooms.domain.exceptions import DomainError
 from rooms.domain.host_guard import assert_is_host
-from rooms.models import Participant, Room
+from rooms.models import Room
 from rooms.repositories import ParticipantRepository, RoomRepository
 from rooms.serializers import RoomSerializer
 from rooms.services.protocols import RoomEventBroadcaster
@@ -34,11 +34,12 @@ class RoomService:
     def join_room(self, code: str, display_name: str, session_id: str) -> dict:
         room = self._rooms.get_active_by_code(code)
         participant, created = self._participants.get_or_create(room, session_id, display_name)
+        state = self.serialize_room(room)
 
         if created:
-            self._notify_participant_joined(room, participant)
+            self._broadcaster.broadcast(room.code, RoomEventType.PARTICIPANT_JOINED, state)
 
-        return self.serialize_room(room)
+        return state
 
     def transfer_host(self, code: str, session_id: str, participant_id: UUID) -> dict:
         room = self._rooms.get_active_by_code(code)
@@ -58,15 +59,3 @@ class RoomService:
 
     def serialize_room(self, room: Room) -> dict:
         return RoomSerializer(room).data
-
-    def _notify_participant_joined(self, room: Room, participant: Participant) -> None:
-        self._broadcaster.broadcast(
-            room.code,
-            RoomEventType.PARTICIPANT_JOINED,
-            {
-                "participant": {
-                    "display_name": participant.display_name,
-                    "session_id": participant.session_id,
-                }
-            },
-        )

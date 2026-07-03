@@ -60,11 +60,6 @@ class QueueService:
         self._advance_playback(room)
         state = self.serialize_room(room)
         self._broadcaster.broadcast(room.code, RoomEventType.QUEUE_UPDATED, state)
-        self._broadcaster.broadcast(
-            room.code,
-            RoomEventType.SONG_SKIPPED,
-            {"now_playing": state.get("now_playing")},
-        )
         return state
 
     def remove_from_queue(self, code: str, item_id: UUID, session_id: str) -> dict:
